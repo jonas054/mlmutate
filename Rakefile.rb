@@ -25,10 +25,7 @@ CLEAN.include '*.o'
 
 # --- Java ---
 
-ENV['CLASSPATH'] =
-    ['.',
-     '/home/jonas/eclipse3.4.2-for-plugin-dev/plugins/org.junit_3.8.2.v20080602-1318/junit.jar',
-     '/home/xtsjarv/.rvm/src/jruby-1.3.1-p1.4.0/build_lib/junit.jar'].join(':')
+ENV['CLASSPATH'] = ['.', '/usr/share/java/junit.jar'].join(':')
 
 task :javatest => :javabuild do
   sh "java junit.textui.TestRunner TestBankMachine"
