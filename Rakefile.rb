@@ -39,7 +39,7 @@ end
 
 CLEAN.include '*.class'
 
-task :cppmutate do
+task :cppmutate => ['TestMain'] do
   sh './mutate -r rake -t TestMain BankMachine.cc'
 end
 
