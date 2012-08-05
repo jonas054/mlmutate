@@ -3,16 +3,14 @@
 
 using std::string;
 
-void BankMachine::addUser(const string& id, int pin)
-{
+void BankMachine::addUser(const string& id, int pin) {
   UserData ud;
   ud.money = 0;
   ud.pin = pin;
   itsUsers[id] = ud;
 }
 
-BankMachine::Result BankMachine::deposit(const string& userId, int amount)
-{
+BankMachine::Result BankMachine::deposit(const string& userId, int amount) {
   if (!isUser(userId))
     return UNKNOWN_USER;
 
@@ -20,8 +18,9 @@ BankMachine::Result BankMachine::deposit(const string& userId, int amount)
   return OK;
 }
 
-BankMachine::Result BankMachine::withdraw(int amount, const string& userId, int pin)
-{
+BankMachine::Result BankMachine::withdraw(int           amount,
+                                          const string& userId,
+                                          int           pin) {
   if (!isUser(userId))
     return UNKNOWN_USER;
 
@@ -38,14 +37,11 @@ BankMachine::Result BankMachine::withdraw(int amount, const string& userId, int 
   return OK;
 }
 
-int BankMachine::balance(const string& userId) const
-{
+int BankMachine::balance(const string& userId) const {
   assert(isUser(userId));
-
   return itsUsers.find(userId)->second.money;
 }
 
-bool BankMachine::isUser(const string& userId) const
-{
+bool BankMachine::isUser(const string& userId) const {
   return itsUsers.find(userId) != itsUsers.end();
 }

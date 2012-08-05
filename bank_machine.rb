@@ -8,13 +8,9 @@ class BankMachine
 
   attr_reader :cash
   
-  def fillCash(amount)
-    @cash += amount
-  end
+  def fillCash(amount) @cash += amount end
 
-  def addUser(id, pin)
-    @users[id] = UserData.new 0, pin
-  end
+  def addUser(id, pin) @users[id] = UserData.new 0, pin end
 
   def deposit(userId, amount)
     return :UNKNOWN_USER unless @users.has_key? userId
