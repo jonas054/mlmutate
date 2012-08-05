@@ -1,6 +1,6 @@
 class UserData:
-    def __init__(self, money, pin):
-        self.money = money
+    def __init__(self, pin):
+        self.money = 0
         self.pin = pin
 
 class BankMachine:
@@ -12,7 +12,7 @@ class BankMachine:
         self.cash += amount
 
     def addUser(self, id, pin):
-        self.users[id] = UserData(0, pin)
+        self.users[id] = UserData(pin)
 
     def deposit(self, user_id, amount):
         if user_id not in self.users: return 'UNKNOWN_USER'
