@@ -55,10 +55,79 @@ SPLITTERS = {
 
 DO_NOT_MUTATE = /^\w*(?i:assert)[^;]*;$/
 
-class Progress < Struct.new :total, :start_time
-  @@width = 0
+def main(args)
+  source_files, run_cmd, target, log_file_name = parse_args args
 
-  def self.width() @@width end
+  FileMutator.test_suite = TestSuite.new run_cmd
+  source_files.each { |file_name| FileUtils.touch file_name }
+  FileMutator.test_suite.check 'before mutations'
+
+  mutators = source_files.map { |file_name|
+    case file_name
+    when /\.py$/
+      if target
+        $stderr.puts "Don't set --target (-t) for python files. Targets " +
+          "will be set implicitly to the corresponding .pyc files."
+        exit 1
+      end
+      target = file_name + 'c'
+    when /\.(cc|hh|cpp|hpp|C|java)$/
+      unless target
+        $stderr.puts "No target file set."
+        exit 1
+      end
+    end
+    FileMutator.new file_name, target
+  }
+
+  grand_total = mutators.inject(0) { |sum, fm| sum + fm.nr_of_mutations }
+
+  FileMutator.progress = Progress.new grand_total, Time.now
+  mutators.each { |fm| FileMutator.process fm }
+
+  FileMutator.print_statistics
+  FileMutator.test_suite.check 'after mutations'
+
+  $log_file.close if $log_file
+end
+
+def parse_args(args)
+  source_files = []
+
+  while args.any?
+    case args.shift
+    when '-r', '--run'     then run_cmd       = args.shift
+    when '-t', '--target'  then target        = args.shift
+    when '-l', '--logfile' then log_file_name = args.shift
+    when '-h', '--help'    then usage
+    when /^-.*/ then $stderr.puts "Unknown arg: #{$MATCH}"; usage
+    when /.*/   then source_files << $MATCH
+    end
+  end
+  $log_file = File.new log_file_name, 'w' if log_file_name
+  usage if source_files.empty? or run_cmd.nil?
+  [source_files, run_cmd, target, log_file_name]
+end
+
+def usage
+  program = File.basename $PROGRAM_NAME
+  $stderr <<
+    "Usage: #{program} [-l <log-file>] -r <run-command> [-t <target>] " <<
+    "<source>...\n" <<
+    "       #{program} -h\n" <<
+    "options:\n" <<
+    "       -h, --help:    prints this help text\n" <<
+    "       -l, --logfile: detailed logging to file\n" <<
+    "       -r, --run:     sets the command that builds and runs the test" <<
+    "suite\n" <<
+    "       -t, --target:  sets the target file built from the source files" <<
+    "\n" <<
+    "                      (must be set for C++ and Java)\n"
+  exit 1
+end
+
+class Progress < Struct.new :total, :start_time
+  def width() @width || 0 end
 
   def step
     @current = (@current || 0) + 1
@@ -81,7 +150,7 @@ class Progress < Struct.new :total, :start_time
                 time_string(remaining),
                 time_string(elapsed + remaining))
     print s
-    @@width = s.length
+    @width = s.length
     $stdout.flush
   end
 
@@ -113,7 +182,7 @@ class TestSuite < Struct.new :run_cmd
     end
 
     if @run_time
-      seconds = 3 + 3 * @run_time
+      seconds = (3 + 3 * @run_time).to_i
       `(#{File.dirname(__FILE__)}/cmdtimeout -t #{seconds} #{run_cmd}) 2>&1`
     else
       # When we run the tests before mutations, @run_time is still nil, so we
@@ -190,6 +259,7 @@ class FileMutator
   def self.test_suite=(ts) @@test_suite = ts end
   def self.test_suite()    @@test_suite      end
   def self.progress=(pr)   @@progress = pr   end
+  def self.progress()      @@progress        end
 
   @@stats = Hash.new 0
 
@@ -265,7 +335,7 @@ class FileMutator
         if $log_file
           $log_file.puts "Waiting for #{@file_name} to be newer than #{@target}"
         end
-        sleep 0.5
+        sleep 0.2
         FileUtils.touch @file_name
       end
     end
@@ -286,7 +356,7 @@ class FileMutator
            "'#{replacement}'")
       stream.print s
       if ENV['TERM'] == 'xterm'
-        sticking_out = Progress.width - s.length
+        sticking_out = FileMutator.progress.width - s.length
         if sticking_out > 0
           stream.print " " * sticking_out + "\b" * sticking_out
         end
@@ -321,71 +391,4 @@ class FileMutator
   end
 end
 
-if __FILE__ == $PROGRAM_NAME
-  def usage
-    program = File.basename $PROGRAM_NAME
-    $stderr <<
-      "Usage: #{program} [-l <log-file>] -r <run-command> [-t <target>] " <<
-      "<source>...\n" <<
-      "       #{program} -h\n" <<
-      "options:\n" <<
-      "       -h, --help:    prints this help text\n" <<
-      "       -l, --logfile: detailed logging to file\n" <<
-      "       -r, --run:     sets the command that builds and runs the " <<
-      "test suite\n" <<
-      "       -t, --target:  sets the target file built from the source " <<
-      "files\n" <<
-      "                      (must be set for C++ and Java)" <<
-      "\n"
-    exit 1
-  end
-
-  source_files = []
-
-  while ARGV.any?
-    case ARGV.shift
-    when '-r', '--run'     then run_cmd       = ARGV.shift
-    when '-t', '--target'  then target        = ARGV.shift
-    when '-l', '--logfile' then log_file_name = ARGV.shift
-    when '-h', '--help'    then usage
-    when /^-.*/ then $stderr.puts "Unknown arg: #{$MATCH}"; usage
-    when /.*/   then source_files << $MATCH
-    end
-  end
-
-  $log_file = File.new log_file_name, 'w' if log_file_name
-
-  usage if source_files.empty? or run_cmd.nil?
-
-  FileMutator.test_suite = TestSuite.new run_cmd
-  source_files.each { |file_name| FileUtils.touch file_name }
-  FileMutator.test_suite.check 'before mutations'
-
-  mutators = source_files.map { |file_name|
-    case file_name
-    when /\.py$/
-      if target
-        $stderr.puts "Don't set --target (-t) for python files. Targets " +
-          "will be set implicitly to the corresponding .pyc files."
-        exit 1
-      end
-      target = file_name + 'c'
-    when /\.(cc|hh|cpp|hpp|C|java)$/
-      unless target
-        $stderr.puts "No target file set."
-        exit 1
-      end
-    end
-    FileMutator.new file_name, target
-  }
-
-  grand_total = mutators.inject(0) { |sum, fm| sum + fm.nr_of_mutations }
-
-  FileMutator.progress = Progress.new grand_total, Time.now
-  mutators.each { |fm| FileMutator.process fm }
-
-  FileMutator.print_statistics
-  FileMutator.test_suite.check 'after mutations'
-
-  $log_file.close if $log_file
-end
+main(ARGV) if __FILE__ == $PROGRAM_NAME

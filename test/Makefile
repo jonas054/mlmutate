@@ -19,5 +19,8 @@ all: TestMain
 TestMain: TestMain.o TestBankMachine.o BankMachine.o
 	g++ -o $@ $^ -lcppunit
 
+test:
+	rake test
+
 clean:
 	-rm *.o .*.d

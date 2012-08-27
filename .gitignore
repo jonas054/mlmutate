@@ -1,0 +1,6 @@
+.*.d
+*.o
+*.class
+*.pyc
+*.log
+TestMain
